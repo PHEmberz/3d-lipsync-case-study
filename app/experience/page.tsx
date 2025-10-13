@@ -2,15 +2,16 @@
 
 import Login from "@/app/components/Login";
 import {useEffect, useState} from "react";
+import Chat from "@/app/components/Chat";
 
 const Experience = () => {
     const [isLogin, setIsLogin] = useState(false);
 
     // Check login status function
     const checkLoginStatus = () => {
-        const userName = localStorage.getItem('userName');
+        const username = localStorage.getItem('username');
         const sessionId = localStorage.getItem('sessionId');
-        setIsLogin(!!(userName && sessionId));
+        setIsLogin(!!(username && sessionId));
     };
 
 
@@ -19,7 +20,7 @@ const Experience = () => {
         checkLoginStatus();
         // Handle login status when local storage is changed
         const handleStorageChange = (e: StorageEvent) => {
-            if (e.key === 'userName' || e.key === 'sessionId') {
+            if (e.key === 'username' || e.key === 'sessionId') {
                 checkLoginStatus();
             }
         };
@@ -33,8 +34,10 @@ const Experience = () => {
 
     return (
         <div id='experience'>
-            {!isLogin && (
+            {!isLogin ? (
                 <Login />
+            ):(
+                <Chat />
             )}
         </div>
     );
