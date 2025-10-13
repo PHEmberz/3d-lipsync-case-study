@@ -12,6 +12,20 @@ body {
     overflow-x: hidden;
 }
 
+@layer components {
+    #login {
+        label {
+            @apply block text-lg font-medium text-white
+        }
+        input {
+            @apply block w-full rounded-md bg-white px-3 py-1.5 text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 text-lg mt-2 mb-2
+        }
+        button {
+            @apply flex w-full justify-center rounded-md bg-indigo-500 px-3 py-1.5 font-semibold text-white hover:bg-indigo-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 text-lg mt-5 mb-5
+        }
+    }
+}
+
 @layer base {
     button {
         cursor: pointer;
