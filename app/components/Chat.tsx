@@ -22,6 +22,7 @@ const Chat = () => {
     const [me, setMe] = useState<{ id: string; name: string }>({ id: '', name: '' });
     const [isSending, setIsSending] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
+    const pollerRef = useRef<number | null>(null);
     const bottomRef = useRef<HTMLDivElement | null>(null);
     const ttsService = useMemo(() => {
         try {
@@ -132,7 +133,42 @@ const Chat = () => {
                         }
                     }
                 )
-                .subscribe();
+                .subscribe((status) => {
+                    if (status === 'SUBSCRIBED') {
+                        setErrorMsg(null);
+                        // Stop polling if it was started earlier
+                        if (pollerRef.current) {
+                            clearInterval(pollerRef.current);
+                            pollerRef.current = null;
+                        }
+                    } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                        // If realtime cannot connect (e.g., WS blocked or project paused), fall back to polling
+                        if (!pollerRef.current) {
+                            setErrorMsg('Realtime unavailable, using fallback polling');
+                            pollerRef.current = window.setInterval(async () => {
+                                try {
+                                    const { data, error } = await supabase
+                                        .from('chats')
+                                        .select('id,user_id,name,message,created_at')
+                                        .gte('created_at', loginStartedAt)
+                                        .order('created_at', { ascending: true });
+                                    if (!error && data) {
+                                        // Merge without duplicates
+                                        setMessages((prev) => {
+                                            const byId = new Map(prev.map((m) => [m.id, m]));
+                                            for (const row of data as Message[]) {
+                                                byId.set(row.id, row);
+                                            }
+                                            return Array.from(byId.values()).sort((a, b) => a.created_at.localeCompare(b.created_at));
+                                        });
+                                    }
+                                } catch (e) {
+                                    // keep silent to avoid console spam
+                                }
+                            }, 3000);
+                        }
+                    }
+                });
         };
 
         // Try to fetch the user immediately
@@ -161,6 +197,10 @@ const Chat = () => {
             }
             if (authSubscription) {
                 authSubscription.data.subscription.unsubscribe();
+            }
+            if (pollerRef.current) {
+                clearInterval(pollerRef.current);
+                pollerRef.current = null;
             }
         };
     }, [loginStartedAt, supabase]);
