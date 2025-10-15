@@ -4,6 +4,7 @@ const KEYS = {
     username: 'username',
     sessionId: 'sessionId',
     loginStartedAt: 'loginStartedAt',
+    avatarNumber: 'avatarNumber',
 };
 
 // Save the username and session ID to localstorage
@@ -22,4 +23,5 @@ export function clearAuthFromLocal() {
     localStorage.removeItem(KEYS.username);
     localStorage.removeItem(KEYS.sessionId);
     localStorage.removeItem(KEYS.loginStartedAt);
+    localStorage.removeItem(KEYS.avatarNumber);
 }

@@ -4,11 +4,12 @@ import { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { Lipsync } from "wawa-lipsync";
+import {SkeletonUtils} from "three-stdlib";
 
 interface AvatarProps {
     avatarNumber?: number; // 1-6
     position?: [number, number, number];
-    rotation?: [number, number, number]; // Euler angles in radians
+    rotation?: [number, number, number];
     scale?: number;
 }
 
@@ -25,6 +26,8 @@ const Avatar = forwardRef<AvatarHandle, AvatarProps>(({
 }, ref) => {
     const avatarPath = `/avatars/avatar${avatarNumber}.glb`;
     const { scene } = useGLTF(avatarPath);
+    // Clone the scene to avoid sharing morph targets between multiple avatars
+    const clonedScene = useRef<THREE.Group | null>(null);
     const headMeshesRef = useRef<THREE.SkinnedMesh[]>([]);
     const lipsyncRef = useRef<Lipsync | null>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -36,8 +39,11 @@ const Avatar = forwardRef<AvatarHandle, AvatarProps>(({
         // Clear previous meshes
         headMeshesRef.current = [];
 
+        // Clone the scene to create independent instance for this avatar
+        clonedScene.current = SkeletonUtils.clone(scene) as THREE.Group;
+
         // Enable shadows and find ALL meshes with morph targets
-        scene.traverse((object: THREE.Object3D) => {
+        clonedScene.current.traverse((object: THREE.Object3D) => {
             if ((object as THREE.Mesh).isMesh) {
                 const mesh = object as THREE.Mesh;
                 mesh.castShadow = true;
@@ -90,7 +96,7 @@ const Avatar = forwardRef<AvatarHandle, AvatarProps>(({
         // Process audio and get viseme
         lipsyncRef.current.processAudio();
 
-        // Apply morph targets to ALL meshes with mouthOpen
+        // Apply morph targets to all meshes with mouthOpen
         if (lipsyncRef.current.features) {
             const volume = lipsyncRef.current.features.volume;
             const morphValue = Math.min(volume * 3, 1);
@@ -107,8 +113,11 @@ const Avatar = forwardRef<AvatarHandle, AvatarProps>(({
         }
     });
 
+    // Don't render until cloned scene is ready
+    if (!clonedScene.current) return null;
+
     return (
-        <primitive object={scene} position={position} rotation={rotation} scale={scale} />
+        <primitive object={clonedScene.current} position={position} rotation={rotation} scale={scale} />
     );
 });
 
