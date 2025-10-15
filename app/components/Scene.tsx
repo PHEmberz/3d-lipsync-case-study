@@ -1,7 +1,7 @@
 'use client';
 import {ContactShadows, Environment, Preload} from "@react-three/drei";
 import {Canvas, useFrame, useThree} from "@react-three/fiber";
-import {Suspense, useEffect, useRef, forwardRef, useImperativeHandle} from "react";
+import {Suspense, useEffect, useRef} from "react";
 import {Room} from "@/app/components/Room";
 import Avatar, { AvatarHandle } from "@/app/components/Avatar";
 import * as THREE from "three";
