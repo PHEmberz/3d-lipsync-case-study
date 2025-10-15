@@ -68,7 +68,8 @@ const Chat = () => {
 
     // Fetch current user, load post-login history, and subscribe to realtime updates
     useEffect(() => {
-        let unsub: (() => void) | null = null;
+        let channel: ReturnType<typeof supabase.channel> | null = null;
+        let authSubscription: { data: { subscription: { unsubscribe: () => void } } } | null = null;
 
         // Main initialization function
         const bootstrap = async () => {
@@ -101,44 +102,62 @@ const Chat = () => {
                 setTimeout(scrollToBottom, 0);
             }
 
+            // Clean up existing channel if any
+            if (channel) {
+                await supabase.removeChannel(channel);
+                channel = null;
+            }
+
             // Subscribe to realtime chat updates
-            const channel = supabase
-                .channel('realtime:chats')
+            channel = supabase
+                .channel('realtime:chats:' + Date.now()) // Unique channel name to avoid conflicts
                 .on(
                     'postgres_changes',
                     { event: 'INSERT', schema: 'public', table: 'chats' },
                     (payload) => {
                         const row = payload.new as Message;
                         if (new Date(row.created_at) >= new Date(loginStartedAt)) {
-                            setMessages((prev) => [...prev, row]);
+                            setMessages((prev) => {
+                                // Prevent duplicate messages
+                                if (prev.some(m => m.id === row.id)) {
+                                    return prev;
+                                }
+                                return [...prev, row];
+                            });
                             setTimeout(scrollToBottom, 100);
                         }
                     }
                 )
                 .subscribe();
-
-            unsub = () => supabase.removeChannel(channel);
         };
 
         // Try to fetch the user immediately
         void bootstrap();
 
         // Listen for Supabase auth state changes
-        const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+        authSubscription = supabase.auth.onAuthStateChange(async (_event, session) => {
             if (session?.user) {
                 // User signed in or session restored
-                void loadUserData(session.user);
+                await loadUserData(session.user);
             } else {
                 // User signed out
                 setMe({ id: '', name: '' });
                 setMessages([]);
+                if (channel) {
+                    await supabase.removeChannel(channel);
+                    channel = null;
+                }
             }
         });
 
         // Unsubscribe from realtime and auth listeners
         return () => {
-            if (unsub) unsub();
-            sub.subscription.unsubscribe();
+            if (channel) {
+                supabase.removeChannel(channel).catch(console.error);
+            }
+            if (authSubscription) {
+                authSubscription.data.subscription.unsubscribe();
+            }
         };
     }, [loginStartedAt, supabase]);
 

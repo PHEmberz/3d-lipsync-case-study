@@ -10,25 +10,44 @@ const LogoutButton = () => {
 
     const handleLogout = async () => {
         setIsLoggingOut(true);
+
         try {
-            // Sign out from Supabase
-            const { error } = await supabase.auth.signOut();
-            if (error) {
-                console.error('Logout error:', error);
-                alert('Failed to logout: ' + error.message);
-                return;
+            // Create a timeout that RESOLVES with a tagged result instead of rejecting
+            // This avoids try/catch around Promise.race and keeps types precise
+            const timeoutPromise: Promise<{ type: 'timeout' }> = new Promise((resolve) => {
+                setTimeout(() => resolve({ type: 'timeout' }), 5000);
+            });
+
+            // Wrap Supabase signOut so the race returns a tagged union
+            const signOutPromise: Promise<{
+                type: 'signout';
+                result: Awaited<ReturnType<typeof supabase.auth.signOut>>;
+            }> = supabase.auth.signOut().then((res) => ({ type: 'signout', result: res }));
+
+            // Race between sign out and timeout, both sides resolve with a tag
+            const winner = await Promise.race([signOutPromise, timeoutPromise]);
+
+            if (winner.type === 'signout') {
+                // Normal path, check Supabase response
+                const { error } = winner.result;
+                if (error) {
+                    console.error('Logout error:', error);
+                }
+            } else {
+                // Timeout path
+                console.warn('Logout timed out, continuing with local logout');
             }
 
-            // Clear localStorage
+            // Clear localStorage in either case
             clearAuthFromLocal();
 
             // Refresh the page to show login form
             window.location.reload();
         } catch (err) {
+            // Catch truly unexpected errors
             console.error('Unexpected logout error:', err);
-            alert('An unexpected error occurred during logout');
-        } finally {
-            setIsLoggingOut(false);
+            clearAuthFromLocal();
+            window.location.reload();
         }
     };
 

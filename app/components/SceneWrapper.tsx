@@ -51,48 +51,69 @@ const SceneWrapper = () => {
         const checkLoginStatus = () => {
             const username = localStorage.getItem('username');
             const sessionId = localStorage.getItem('sessionId');
+            const avatarNum = localStorage.getItem('avatarNumber');
             const isLoggedIn = !!(username && sessionId);
-
-            setIsLogin(isLoggedIn);
 
             // If user is logged in, assign avatar, position, and rotation
             if (isLoggedIn) {
                 // Get or create avatar number (persisted across refreshes)
-                let avatarNum = localStorage.getItem('avatarNumber');
-                if (!avatarNum) {
+                let newAvatarNum = avatarNum;
+                if (!newAvatarNum) {
                     // First time login - assign random avatar
-                    avatarNum = String(Math.floor(Math.random() * 6) + 1);
-                    localStorage.setItem('avatarNumber', avatarNum);
+                    newAvatarNum = String(Math.floor(Math.random() * 6) + 1);
+                    localStorage.setItem('avatarNumber', newAvatarNum);
                 }
-                setAvatarNumber(parseInt(avatarNum));
 
-                // Always get random position on page load
+                const parsedAvatarNum = parseInt(newAvatarNum);
+                setAvatarNumber(parsedAvatarNum);
+
+                // Always get random position on page load or login
                 const spawnPoint = getRandomSpawnPoint();
                 setAvatarPosition(spawnPoint.position);
                 setAvatarRotation(spawnPoint.rotation);
+
+                // Set login state AFTER all avatar data is set
+                setIsLogin(true);
+            } else {
+                setIsLogin(false);
             }
         };
 
-        checkLoginStatus();
+        // Initial check with a small delay to ensure DOM is ready
+        const timer = setTimeout(() => {
+            checkLoginStatus();
+        }, 50);
 
-        // Listen for storage changes
+        // Listen for storage changes (works across tabs)
         const handleStorageChange = (e: StorageEvent) => {
-            if (e.key === 'username' || e.key === 'sessionId') {
+            if (e.key === 'username' || e.key === 'sessionId' || e.key === 'avatarNumber') {
                 checkLoginStatus();
             }
         };
 
         window.addEventListener('storage', handleStorageChange);
 
-        // Listen for custom event when login happens to assign random avatar
+        // Listen for custom event when login happens (works in same tab)
         const handleLoginEvent = () => {
-            checkLoginStatus();
+            // Add a delay to ensure localStorage is fully updated
+            setTimeout(() => {
+                checkLoginStatus();
+            }, 150);
         };
         window.addEventListener('login', handleLoginEvent);
 
+        // Listen for logout event
+        const handleLogoutEvent = () => {
+            setIsLogin(false);
+            setAvatarNumber(1);
+        };
+        window.addEventListener('logout', handleLogoutEvent);
+
         return () => {
+            clearTimeout(timer);
             window.removeEventListener('storage', handleStorageChange);
             window.removeEventListener('login', handleLoginEvent);
+            window.removeEventListener('logout', handleLogoutEvent);
         };
     }, []);
 

@@ -29,9 +29,15 @@ export default function Login() {
             if (error) {
                 console.error(error);
                 alert(error.message);
+                return;
             }
+
             saveAuthToLocal(data.user);
-            router.push('/experience')
+
+            // Small delay to ensure localStorage is set before navigation
+            setTimeout(() => {
+                router.push('/experience');
+            }, 100);
         } else {
           alert("Please fill in all required fields.")
         }

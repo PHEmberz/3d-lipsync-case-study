@@ -1,6 +1,6 @@
 'use client';
 import { useGLTF } from "@react-three/drei";
-import { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
+import { useEffect, useRef, useImperativeHandle, forwardRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { Lipsync } from "wawa-lipsync";
@@ -27,7 +27,8 @@ const Avatar = forwardRef<AvatarHandle, AvatarProps>(({
     const avatarPath = `/avatars/avatar${avatarNumber}.glb`;
     const { scene } = useGLTF(avatarPath);
     // Clone the scene to avoid sharing morph targets between multiple avatars
-    const clonedScene = useRef<THREE.Group | null>(null);
+    // Use useState instead of useRef to trigger re-render when scene is cloned
+    const [clonedScene, setClonedScene] = useState<THREE.Group | null>(null);
     const headMeshesRef = useRef<THREE.SkinnedMesh[]>([]);
     const lipsyncRef = useRef<Lipsync | null>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -40,10 +41,10 @@ const Avatar = forwardRef<AvatarHandle, AvatarProps>(({
         headMeshesRef.current = [];
 
         // Clone the scene to create independent instance for this avatar
-        clonedScene.current = SkeletonUtils.clone(scene) as THREE.Group;
+        const cloned = SkeletonUtils.clone(scene) as THREE.Group;
 
         // Enable shadows and find ALL meshes with morph targets
-        clonedScene.current.traverse((object: THREE.Object3D) => {
+        cloned.traverse((object: THREE.Object3D) => {
             if ((object as THREE.Mesh).isMesh) {
                 const mesh = object as THREE.Mesh;
                 mesh.castShadow = true;
@@ -55,6 +56,9 @@ const Avatar = forwardRef<AvatarHandle, AvatarProps>(({
                 }
             }
         });
+
+        // Set the cloned scene to trigger re-render
+        setClonedScene(cloned);
     }, [scene, avatarNumber]);
 
     // Expose speak method to parent
@@ -114,10 +118,10 @@ const Avatar = forwardRef<AvatarHandle, AvatarProps>(({
     });
 
     // Don't render until cloned scene is ready
-    if (!clonedScene.current) return null;
+    if (!clonedScene) return null;
 
     return (
-        <primitive object={clonedScene.current} position={position} rotation={rotation} scale={scale} />
+        <primitive object={clonedScene} position={position} rotation={rotation} scale={scale} />
     );
 });
 

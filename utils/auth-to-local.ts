@@ -10,9 +10,12 @@ const KEYS = {
 // Save the username and session ID to localstorage
 export function saveAuthToLocal(user?: User | null) {
     if (typeof window === 'undefined' || !user) return;
+
     const username = (user.user_metadata?.username as string | undefined) || '';
     if (username) localStorage.setItem(KEYS.username, username);
     localStorage.setItem(KEYS.sessionId, user.id);
+    // Set login started time for chat history
+    localStorage.setItem(KEYS.loginStartedAt, new Date().toISOString());
     // Dispatch custom event to notify other components
     window.dispatchEvent(new Event('login'));
 }
@@ -24,4 +27,6 @@ export function clearAuthFromLocal() {
     localStorage.removeItem(KEYS.sessionId);
     localStorage.removeItem(KEYS.loginStartedAt);
     localStorage.removeItem(KEYS.avatarNumber);
+    // Dispatch logout event to notify other components
+    window.dispatchEvent(new Event('logout'));
 }
