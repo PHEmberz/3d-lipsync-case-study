@@ -1,3 +1,5 @@
+"use client";
+
 import React, {useEffect, useMemo, useRef, useState} from "react";
 import {createClient} from "@/utils/supabase/component";
 import {User} from "@supabase/supabase-js";
@@ -18,6 +20,8 @@ const Chat = () => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
     const [me, setMe] = useState<{ id: string; name: string }>({ id: '', name: '' });
+    const [isSending, setIsSending] = useState(false);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const bottomRef = useRef<HTMLDivElement | null>(null);
     const ttsService = useMemo(() => {
         try {
@@ -163,36 +167,48 @@ const Chat = () => {
 
     // Insert the new message into the database
     const handleSend = async () => {
+        setErrorMsg(null);
         const text = inputText.trim();
         if (!text) return;
 
-        const { data, error: se } = await supabase.auth.getSession();
-        if (se || !data.session?.user) {
-            alert('You are not logged in.');
-            return;
-        }
-        const user = data.session.user;
+        try {
+            setIsSending(true);
 
-        const { data: insertedData, error } = await supabase.from('chats').insert({
-            user_id: user.id,
-            name: localStorage.getItem('username'),
-            message: text,
-        }).select();
+            const { data, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError || !data.session?.user) {
+                setErrorMsg('未登录或会话已过期，请重新登录');
+                return;
+            }
+            const user = data.session.user;
 
-        if (error) {
-            alert('Send failed: ' + error.message);
-            return;
-        }
+            const { data: insertedData, error } = await supabase
+                .from('chats')
+                .insert({
+                    user_id: user.id,
+                    name: localStorage.getItem('username'),
+                    message: text,
+                })
+                .select();
 
-        setInputText('');
+            if (error) {
+                setErrorMsg('发送失败：' + error.message);
+                return;
+            }
 
-        // Automatically speak the message after sending
-        if (insertedData && insertedData.length > 0) {
-            const newMessage = insertedData[0] as Message;
-            // Wait a bit for the message to appear in the chat
-            setTimeout(() => {
-                speakMessage(newMessage);
-            }, 100);
+            setInputText('');
+
+            // Automatically speak the message after sending
+            if (insertedData && insertedData.length > 0) {
+                const newMessage = insertedData[0] as Message;
+                setTimeout(() => {
+                    speakMessage(newMessage);
+                }, 100);
+            }
+        } catch (e) {
+            console.error('Send error:', e);
+            setErrorMsg('发送出现异常，请稍后重试');
+        } finally {
+            setIsSending(false);
         }
     };
 
@@ -248,21 +264,28 @@ const Chat = () => {
                 </div>
 
                 {/* Input Area */}
-                <div className="p-5 bg-white border-t border-gray-200 flex items-center gap-3">
+                <div className="p-5 bg-white border-t border-gray-200 flex flex-col gap-2">
+                    {errorMsg && (
+                        <div className="text-sm text-red-600">{errorMsg}</div>
+                    )}
+                    <div className="flex items-center gap-3">
                     <input
                         type="text"
                         value={inputText}
                         onChange={(e) => setInputText(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder="Type a message..."
+                        placeholder={me.id ? "Type a message..." : "请先登录以发送消息"}
                         className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-full focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-purple-100 transition-all"
                     />
                     <button
                         onClick={handleSend}
-                        className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-3 rounded-full font-semibold active:translate-y-0 transition-all"
+                        disabled={isSending || !me.id || inputText.trim().length === 0}
+                        aria-busy={isSending}
+                        className="bg-gradient-to-r from-green-500 to-emerald-600 disabled:from-gray-300 disabled:to-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white px-6 py-3 rounded-full font-semibold active:translate-y-0 transition-all"
                     >
-                        Send
+                        {isSending ? 'Sending…' : 'Send'}
                     </button>
+                    </div>
                 </div>
             </div>
         </div>
