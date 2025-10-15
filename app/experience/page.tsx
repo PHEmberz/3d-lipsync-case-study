@@ -4,6 +4,7 @@ import Login from "@/app/components/Login";
 import {useEffect, useState} from "react";
 import Chat from "@/app/components/Chat";
 import LogoutButton from "@/app/components/LogoutButton";
+import Link from "next/link";
 
 const Experience = () => {
     const [isLogin, setIsLogin] = useState(false);
@@ -44,6 +45,11 @@ const Experience = () => {
     return (
         <div id='experience'>
             {isLogin && <LogoutButton />}
+            {!isLogin && (
+                <Link href="/" className="fixed top-6 left-6 z-50 px-6 py-3 rounded-2xl bg-black/50 backdrop-blur-sm text-white font-semibold hover:bg-black/70 transition-all duration-200 shadow-lg hover:shadow-xl">
+                    ← Back to Home
+                </Link>
+            )}
             {!isLogin ? (
                 <Login />
             ):(
