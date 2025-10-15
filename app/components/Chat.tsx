@@ -1,6 +1,8 @@
 import React, {useEffect, useMemo, useRef, useState} from "react";
 import {createClient} from "@/utils/supabase/component";
 import {User} from "@supabase/supabase-js";
+import {getTTSService} from "@/utils/tts";
+import {globalAvatarRef, globalAvatarNumber} from "@/app/components/SceneWrapper";
 
 // Define message type
 type Message = {
@@ -17,6 +19,14 @@ const Chat = () => {
     const [inputText, setInputText] = useState('');
     const [me, setMe] = useState<{ id: string; name: string }>({ id: '', name: '' });
     const bottomRef = useRef<HTMLDivElement | null>(null);
+    const ttsService = useMemo(() => {
+        try {
+            return getTTSService();
+        } catch (e) {
+            console.error('Failed to initialize TTS:', e);
+            return null;
+        }
+    }, []);
 
     // Recording the login time for getting chat history
     const loginStartedAt = useMemo(() => {
@@ -30,6 +40,31 @@ const Chat = () => {
 
     // Scroll to bottom when a message is sent
     const scrollToBottom = () => bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+
+    // Handle TTS and lipsync for messages
+    const speakMessage = async (message: Message) => {
+        if (!ttsService || !globalAvatarRef) {
+            return;
+        }
+
+        try {
+            const audioData = await ttsService.speak(message.message, globalAvatarNumber);
+            if (!audioData) {
+                return;
+            }
+
+            const audio = await ttsService.playAudio(audioData);
+            globalAvatarRef.speak(audio);
+
+            audio.addEventListener('ended', () => {
+                if (globalAvatarRef) {
+                    globalAvatarRef.stopSpeaking();
+                }
+            });
+        } catch (error) {
+            console.error('Error speaking message:', error);
+        }
+    };
 
     // Fetch current user, load post-login history, and subscribe to realtime updates
     useEffect(() => {
@@ -61,11 +96,8 @@ const Chat = () => {
                 .gte('created_at', loginStartedAt)
                 .order('created_at', { ascending: true });
 
-            if (error) {
-                console.error('[fetch chats]', error);
-            } else {
+            if (!error) {
                 setMessages(data || []);
-                // Scroll to the bottom after loading history
                 setTimeout(scrollToBottom, 0);
             }
 
@@ -77,11 +109,9 @@ const Chat = () => {
                     { event: 'INSERT', schema: 'public', table: 'chats' },
                     (payload) => {
                         const row = payload.new as Message;
-                        // Only display messages created after login
                         if (new Date(row.created_at) >= new Date(loginStartedAt)) {
                             setMessages((prev) => [...prev, row]);
-                            // Auto-scroll to the latest message
-                            setTimeout(scrollToBottom, 0);
+                            setTimeout(scrollToBottom, 100);
                         }
                     }
                 )
@@ -124,16 +154,27 @@ const Chat = () => {
         }
         const user = data.session.user;
 
-        const { error } = await supabase.from('chats').insert({
+        const { data: insertedData, error } = await supabase.from('chats').insert({
             user_id: user.id,
             name: localStorage.getItem('username'),
             message: text,
-        });
+        }).select();
+
         if (error) {
             alert('Send failed: ' + error.message);
             return;
         }
+
         setInputText('');
+
+        // Automatically speak the message after sending
+        if (insertedData && insertedData.length > 0) {
+            const newMessage = insertedData[0] as Message;
+            // Wait a bit for the message to appear in the chat
+            setTimeout(() => {
+                speakMessage(newMessage);
+            }, 100);
+        }
     };
 
 
@@ -145,14 +186,13 @@ const Chat = () => {
         }
     };
 
-    // Browser auth check
+
+    // Auto-scroll when messages update
     useEffect(() => {
-        const check = async () => {
-            const { data } = await supabase.auth.getSession();
-            console.log('[auth] session user =', data.session?.user?.id);
-        };
-        void check();
-    }, [supabase.auth]);
+        if (messages.length > 0) {
+            setTimeout(scrollToBottom, 100);
+        }
+    }, [messages]);
 
     return (
         <div className="flex items-center justify-center min-h-screen">
