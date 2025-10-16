@@ -216,7 +216,7 @@ const Chat = () => {
 
             const { data, error: sessionError } = await supabase.auth.getSession();
             if (sessionError || !data.session?.user) {
-                setErrorMsg('未登录或会话已过期，请重新登录');
+                setErrorMsg('Session is expired, please try again');
                 return;
             }
             const user = data.session.user;
@@ -231,7 +231,7 @@ const Chat = () => {
                 .select();
 
             if (error) {
-                setErrorMsg('发送失败：' + error.message);
+                setErrorMsg('Failed to send：' + error.message);
                 return;
             }
 
@@ -246,7 +246,7 @@ const Chat = () => {
             }
         } catch (e) {
             console.error('Send error:', e);
-            setErrorMsg('发送出现异常，请稍后重试');
+            setErrorMsg("error");
         } finally {
             setIsSending(false);
         }
@@ -314,7 +314,7 @@ const Chat = () => {
                         value={inputText}
                         onChange={(e) => setInputText(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder={me.id ? "Type a message..." : "请先登录以发送消息"}
+                        placeholder={me.id ? "Type a message..." : "Please login first"}
                         className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-full focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-purple-100 transition-all"
                     />
                     <button

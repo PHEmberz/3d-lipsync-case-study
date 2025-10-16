@@ -1,7 +1,7 @@
 'use client';
-import { useEffect, useState, useCallback } from "react";
+import {useEffect, useState, useCallback} from "react";
 import Scene from "@/app/components/Scene";
-import { AvatarHandle } from "@/app/components/Avatar";
+import {AvatarHandle} from "@/app/components/Avatar";
 
 // Global avatar reference that can be accessed by Chat component
 export let globalAvatarRef: AvatarHandle | null = null;
@@ -117,7 +117,8 @@ const SceneWrapper = () => {
         };
     }, []);
 
-    return <Scene showAvatar={isLogin} avatarNumber={avatarNumber} avatarPosition={avatarPosition} avatarRotation={avatarRotation} onAvatarReady={handleAvatarReady} />;
+    return <Scene showAvatar={isLogin} avatarNumber={avatarNumber} avatarPosition={avatarPosition}
+                  avatarRotation={avatarRotation} onAvatarReady={handleAvatarReady}/>;
 };
 
 export default SceneWrapper;
